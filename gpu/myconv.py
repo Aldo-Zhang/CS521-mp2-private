@@ -110,7 +110,7 @@ if __name__ == "__main__":
     x = torch.randn(N, C, H, W).cuda()
     out_channels=8
     kernel_size=7
-    model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1)
+    model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
     # Instantiate a profiler
     activities = [ProfilerActivity.CPU]
     if torch.cuda.is_available():
