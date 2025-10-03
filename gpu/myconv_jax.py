@@ -105,12 +105,12 @@ if __name__ == "__main__":
 
     # call your JAX function
     # Add jax profiler
-    jax.profiler.start_trace(logdir)
-    with jax.profiler.StepTraceAnnotation("mp2_conv"):
+    with jax.profiler.trace(logdir, create_perfetto_link=True):
         out_jax = conv2d_manual_jax_jit(x_jax, weight_jax, bias_jax)
-    jax.profiler.stop_trace()
+        out_jax.block_until_ready()
 
     # Test your solution
     conv_ref = F.conv2d(x_torch, model.weight, model.bias, stride=1, padding=1)
-    print("JAX --- shape check:", out_jax.shape == conv_ref.shape)
-    print("JAX --- correctness check:", torch.allclose(out_jax, conv_ref, atol=1e-1))
+    out_jax_torch = torch.from_numpy(np.array(out_jax)).to(conv_ref.dtype) # convert jax output to torch
+    print("JAX --- shape check:", out_jax_torch.shape == conv_ref.shape)
+    print("JAX --- correctness check:", torch.allclose(out_jax_torch, conv_ref, atol=1e-1))

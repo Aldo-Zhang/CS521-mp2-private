@@ -115,6 +115,7 @@ if __name__ == "__main__":
     with profile(activities=activities, record_shapes=True) as prof:
         with record_function("model_inference"):
             out = model(x)
+    prof.export_chrome_trace("baseline_trace.json")
 
     # Test your solution
     conv_ref = F.conv2d(x, model.weight, model.bias, stride=1, padding=1)
