@@ -67,6 +67,7 @@ class ConvModel(nn.Module):
         N = x.shape[0]
         C_out = self.out_channels
         KH = KW = self.kernel_size
+        C = self.in_channels
 
         # TO DO: 1) convert input (x) into shape (N, out_h*out_w, C*KH*KW).
         cols = self.im2col_manual(x)
