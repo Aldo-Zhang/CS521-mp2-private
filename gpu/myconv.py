@@ -76,7 +76,18 @@ class ConvModel(nn.Module):
 
         # TO DO: 3) perform tiled matmul after required reshaping is done.
         cols_reshaped = cols.reshape(-1, C*KH*KW)  # Reshape the cols to be a 2-d matrix
-        out_flat = torch.mm(cols_reshaped, flat_weight.T)
+        R = cols_reshaped.shape[0]
+        out_flat = torch.empty(R, C_out, device=x.device, dtype=x.dtype)
+        RB = 2048    # rows tile
+        CB = 256     # cols tile
+        for r0 in range(0, R, RB):
+            r1 = min(r0 + RB, R)
+            A = cols_reshaped[r0:r1, :]             # (rb, K)
+
+            for c0 in range(0, C_out, CB):
+                c1 = min(c0 + CB, C_out)
+                B = flat_weight[c0:c1, :].T         # (K, cb)
+                out_flat[r0:r1, c0:c1] = torch.mm(A, B)
         
         # TO DO: 4) Add bias.
         out_flat = out_flat + self.bias  # (N*out_h*out_w, C_out)
