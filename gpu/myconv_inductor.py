@@ -16,7 +16,10 @@ if __name__ == "__main__":
     # Torch-Inductor compilation
     scripted_model = torch.compile(model, backend="inductor")
     # Add a profiler
-    activities = [ProfilerActivity.CUDA]
+    activities = [ProfilerActivity.CPU]
+    if torch.cuda.is_available():
+        device = "cuda"
+        activities += [ProfilerActivity.CUDA]
     with profile(activities=activities, record_shapes=True) as prof:
         with record_function("model_inference"):
             out = scripted_model(x)

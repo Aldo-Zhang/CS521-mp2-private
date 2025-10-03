@@ -79,8 +79,8 @@ class ConvModel(nn.Module):
         cols_reshaped = cols.reshape(-1, C*KH*KW)  # Reshape the cols to be a 2-d matrix
         R = cols_reshaped.shape[0]
         out_flat = torch.empty(R, C_out, device=x.device, dtype=x.dtype)
-        RB = 2048    # rows tile
-        CB = 256     # cols tile
+        RB = 128    # rows tile
+        CB = 128    # cols tile
         for r0 in range(0, R, RB):
             r1 = min(r0 + RB, R)
             A = cols_reshaped[r0:r1, :]             # (rb, K)
@@ -107,12 +107,15 @@ class ConvModel(nn.Module):
 if __name__ == "__main__":
     torch.manual_seed(0)
     N, C, H, W = 2, 4, 22, 22
-    x = torch.randn(N, C, H, W)
+    x = torch.randn(N, C, H, W).cuda()
     out_channels=8
     kernel_size=7
     model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1)
     # Instantiate a profiler
-    activities = [ProfilerActivity.CUDA]
+    activities = [ProfilerActivity.CPU]
+    if torch.cuda.is_available():
+        device = "cuda"
+        activities += [ProfilerActivity.CUDA]
     with profile(activities=activities, record_shapes=True) as prof:
         with record_function("model_inference"):
             out = model(x)
