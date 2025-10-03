@@ -15,7 +15,11 @@ if __name__ == "__main__":
 
     # Torch-Inductor compilation
     scripted_model = torch.compile(model, backend="inductor")
-    out = scripted_model(x)
+    # Add a profiler
+    activities = [ProfilerActivity.CUDA]
+    with profile(activities=activities, record_shapes=True) as prof:
+        with record_function("model_inference"):
+            out = scripted_model(x)
     
     # Test your solution
     conv_ref = F.conv2d(x, model.weight, model.bias, stride=1, padding=1)

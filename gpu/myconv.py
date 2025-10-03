@@ -110,7 +110,11 @@ if __name__ == "__main__":
     out_channels=8
     kernel_size=7
     model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1)
-    out = model(x)
+    # Instantiate a profiler
+    activities = [ProfilerActivity.CUDA]
+    with profile(activities=activities, record_shapes=True) as prof:
+        with record_function("model_inference"):
+            out = model(x)
 
     # Test your solution
     conv_ref = F.conv2d(x, model.weight, model.bias, stride=1, padding=1)

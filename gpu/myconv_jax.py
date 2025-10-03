@@ -104,7 +104,11 @@ if __name__ == "__main__":
     conv2d_manual_jax_jit = jit(conv2d_manual_jax)
 
     # call your JAX function
-    out_jax = conv2d_manual_jax_jit(x_jax, weight_jax, bias_jax)
+    # Add jax profiler
+    jax.profiler.start_trace(logdir)
+    with jax.profiler.StepTraceAnnotation("mp2_conv"):
+        out_jax = conv2d_manual_jax_jit(x_jax, weight_jax, bias_jax)
+    jax.profiler.stop_trace()
 
     # Test your solution
     conv_ref = F.conv2d(x_torch, model.weight, model.bias, stride=1, padding=1)
