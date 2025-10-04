@@ -17,19 +17,32 @@ def measure_kernel_and_host(run_fn, tag="run"):
     ka = prof.key_averages()
 
     def cuda_ms(e, self_only=True):
+        # PyTorch profiler returns time in microseconds (μs)
         us = (getattr(e, "self_cuda_time_total", None) if self_only else getattr(e, "cuda_time_total", None))
         if us is None:
             us = getattr(e, "cuda_time_total", None) if self_only else getattr(e, "self_cuda_time_total", None)
-        return (us or 0.0) / 1000.0
+        return (us or 0.0) / 1000.0  # Convert μs to ms
 
     def cpu_ms(e, self_only=True):
+        # PyTorch profiler returns time in microseconds (μs)
         us = getattr(e, "self_cpu_time_total", None) if self_only else getattr(e, "cpu_time_total", None)
         if us is None:
             us = getattr(e, "cpu_time_total", 0.0)
-        return us / 1000.0
+        return us / 1000.0  # Convert μs to ms
 
     total_kernel_ms = sum(cuda_ms(e, self_only=True) for e in ka)
     total_host_ms   = sum(cpu_ms(e,  self_only=True) for e in ka)
+    
+    # 添加调试信息
+    print(f"[DEBUG] Total CUDA events: {len([e for e in ka if cuda_ms(e) > 0])}")
+    print(f"[DEBUG] Total CPU events: {len([e for e in ka if cpu_ms(e) > 0])}")
+    
+    # 显示前几个最耗时的CUDA操作
+    cuda_events = [(e.key, cuda_ms(e)) for e in ka if cuda_ms(e) > 0]
+    cuda_events.sort(key=lambda x: x[1], reverse=True)
+    print(f"[DEBUG] Top CUDA operations:")
+    for key, time_ms in cuda_events[:5]:
+        print(f"  {key}: {time_ms:.3f} ms")
 
     return {"kernel_ms": total_kernel_ms,
             "host_ms": total_host_ms, "prof": prof}
@@ -89,5 +102,6 @@ if __name__ == "__main__":
     print("=== Results ===")
     print()
     print("=== Performance Summary ===")
-    print(f"Total kernel time: {result['kernel_ms']:.3f} ms")
-    print(f"Host time:         {result['host_ms']:.3f} ms")
+    print(f"Total kernel time: {result['kernel_ms']:.3f} ms (CUDA operations)")
+    print(f"Host time:         {result['host_ms']:.3f} ms (CPU operations)")
+    print(f"Total time:        {result['kernel_ms'] + result['host_ms']:.3f} ms")
