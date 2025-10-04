@@ -94,7 +94,7 @@ if __name__ == "__main__":
     print("-" * 70)
     for r in results:
         print(f"{r['test']:4d} | {r['input_size']:10s} | {r['kernel_size']:6d} | "
-              f"{r['total_kernel_ms']:15.3f} | {r['total_pure_kernel_ms']:13.3f} | {r['total_host_ms']:8.3f}")
+              f"{r['total_kernel_ms']:15.3f} | {r['total_host_ms']:8.3f}")
 
     # # Test your solution
     # conv_ref = F.conv2d(x, model.weight, model.bias, stride=1, padding=1)
