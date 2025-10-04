@@ -202,14 +202,14 @@ if __name__ == "__main__":
         with record_function("model_inference"):
             out = model(x)
         torch.cuda.synchronize()
-    # Test9 input size 128 * 128 Kernel Size: 7
-    kernel_size = 7
-    model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
-    torch.cuda.synchronize()
-    with profile(activities=activities, record_shapes=True) as prof9:
-        with record_function("model_inference"):
-            out = model(x)
-        torch.cuda.synchronize()
+    # # Test9 input size 128 * 128 Kernel Size: 7
+    # kernel_size = 7
+    # model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
+    # torch.cuda.synchronize()
+    # with profile(activities=activities, record_shapes=True) as prof9:
+    #     with record_function("model_inference"):
+    #         out = model(x)
+    #     torch.cuda.synchronize()
 
     # prof1.export_chrome_trace("baseline_trace_test_1.json")
     # prof2.export_chrome_trace("baseline_trace_test_2.json")
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     # prof6.export_chrome_trace("baseline_trace_test_6.json")
     # prof7.export_chrome_trace("baseline_trace_test_7.json")
     prof8.export_chrome_trace("baseline_trace_test_8.json")
-    prof9.export_chrome_trace("baseline_trace_test_9.json")
+    # prof9.export_chrome_trace("baseline_trace_test_9.json")
     # Test your solution (shape and correctness)
     # conv_ref = F.conv2d(x, model.weight, model.bias, stride=1, padding=1)
     # print("PyTorch --- shape check:", out.shape == conv_ref.shape)
