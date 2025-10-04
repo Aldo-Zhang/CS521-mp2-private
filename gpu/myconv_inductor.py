@@ -15,9 +15,21 @@ def measure_kernel_and_host(run_fn, tag="run"):
 
     ka = prof.key_averages()
 
-    # Total time (ms)
-    total_kernel_ms = sum(e.self_cuda_time_total for e in ka) / 1000.0
-    total_host_ms   = sum(e.self_cpu_time_total  for e in ka) / 1000.0
+    def cuda_ms(e, self_only=True):
+        us = (getattr(e, "self_cuda_time_total", None) if self_only else getattr(e, "cuda_time_total", None))
+        if us is None:
+            us = getattr(e, "cuda_time_total", None) if self_only else getattr(e, "self_cuda_time_total", None)
+        return (us or 0.0) / 1000.0
+
+    def cpu_ms(e, self_only=True):
+        us = getattr(e, "self_cpu_time_total", None) if self_only else getattr(e, "cpu_time_total", None)
+        if us is None:
+            us = getattr(e, "cpu_time_total", 0.0)
+        return us / 1000.0
+
+    # 汇总
+    total_kernel_ms = sum(cuda_ms(e, self_only=True) for e in ka)
+    total_host_ms   = sum(cpu_ms(e,  self_only=True) for e in ka)
 
     # Pure kernel (excluding memcpy/memset, can be kept/removed as needed)
     def is_kernel_row(e):
