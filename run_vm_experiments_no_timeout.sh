@@ -20,10 +20,10 @@ echo "📁 Results will be saved to: $RESULTS_FILE"
 echo ""
 
 # 实验配置
-ALL_INPUT_SIZES=(16 32 64)  # 所有输入尺寸
-ALL_KERNEL_SIZES=(3 5 7)    # 所有卷积核尺寸
-INDUCTOR_INPUT_SIZES=(16 32) # Inductor只跑小尺寸
-INDUCTOR_KERNEL_SIZES=(3 5)  # Inductor只跑小卷积核
+ALL_INPUT_SIZES=(16 32 64 128)  # 所有输入尺寸，包括128×128
+ALL_KERNEL_SIZES=(3 5 7)        # 所有卷积核尺寸
+INDUCTOR_INPUT_SIZES=(16 32)    # Inductor只跑小尺寸
+INDUCTOR_KERNEL_SIZES=(3 5)     # Inductor只跑小卷积核
 
 # 运行PyTorch Baseline和JAX的所有配置
 echo "🧪 Running PyTorch Baseline and JAX for all configurations..."
@@ -90,13 +90,13 @@ echo "💾 Saving results to Git..."
 
 # Git操作
 git add results/ plots/ gpu/*.py *.py *.sh
-git commit -m "Optimized VM Experiment Results - $TIMESTAMP
+git commit -m "Extended VM Experiment Results - $TIMESTAMP
 
-- PyTorch Baseline & JAX: all sizes (16,32,64) x all kernels (3,5,7) = 18 experiments
+- PyTorch Baseline & JAX: all sizes (16,32,64,128) x all kernels (3,5,7) = 24 experiments
 - PyTorch Inductor: small sizes (16,32) x small kernels (3,5) = 4 experiments  
-- Total experiments: 22
+- Total experiments: 28
 - Timestamp: $TIMESTAMP
-- Optimized for Inductor compilation speed"
+- Includes 128x128 for comprehensive analysis"
 
 echo "✅ Results committed to Git"
 
