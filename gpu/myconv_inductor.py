@@ -27,29 +27,10 @@ def measure_kernel_and_host(run_fn, tag="run"):
             us = getattr(e, "cpu_time_total", 0.0)
         return us / 1000.0
 
-    # 汇总
     total_kernel_ms = sum(cuda_ms(e, self_only=True) for e in ka)
     total_host_ms   = sum(cpu_ms(e,  self_only=True) for e in ka)
 
-    # Pure kernel (excluding memcpy/memset, can be kept/removed as needed)
-    def is_kernel_row(e):
-        name = e.key.lower()
-        return not ("memcpy" in name or "memset" in name)
-
-    pure_kernel_ms = sum(e.self_cuda_time_total for e in ka if is_kernel_row(e)) / 1000.0
-
-    # Top-N (CUDA)
-    top_cuda = sorted(ka, key=lambda e: e.self_cuda_time_total, reverse=True)[:15]
-
-    print(f"[{tag}] kernel(ms)={total_kernel_ms:.3f}  "
-          f"pure_kernel(ms)={pure_kernel_ms:.3f}  host(ms)={total_host_ms:.3f}")
-    for e in top_cuda:
-        if e.self_cuda_time_total > 0:
-            print(f"  {e.key:45s}  cuda={e.self_cuda_time_total/1000:.3f} ms  "
-                  f"cpu={e.self_cpu_time_total/1000:.3f} ms  #{e.count}")
-
     return {"kernel_ms": total_kernel_ms,
-            "pure_kernel_ms": pure_kernel_ms,
             "host_ms": total_host_ms, "prof": prof}
 
 if __name__ == "__main__":
