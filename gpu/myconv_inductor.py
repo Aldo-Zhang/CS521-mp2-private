@@ -13,9 +13,9 @@ if __name__ == "__main__":
     
     model = ConvModel(H, W, in_channels=3, out_channels=8, kernel_size=3, stride=1, padding=1).cuda().eval()
 
-    # Torch-Inductor compilation
-    scripted_model = torch.compile(model, backend="inductor")
-    out = scripted_model(x) # Warmup
+    # # Torch-Inductor compilation
+    # scripted_model = torch.compile(model, backend="inductor")
+    # out = scripted_model(x) 
 
     # Profiling tests
     kernel_sizes = [3, 5, 7]
