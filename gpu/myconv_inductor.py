@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.profiler import profile, record_function, ProfilerActivity
 from myconv import ConvModel
+import argparse
 
 def measure_kernel_and_host(run_fn, tag="run"):
     acts = [ProfilerActivity.CPU, ProfilerActivity.CUDA]
@@ -34,68 +35,59 @@ def measure_kernel_and_host(run_fn, tag="run"):
             "host_ms": total_host_ms, "prof": prof}
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='PyTorch Inductor Performance Test')
+    parser.add_argument('--input_size', type=int, required=True, 
+                       help='Input size (H=W, e.g., 32 for 32x32)')
+    parser.add_argument('--kernel_size', type=int, required=True,
+                       help='Kernel size (e.g., 3, 5, 7)')
+    parser.add_argument('--batch_size', type=int, default=2,
+                       help='Batch size (default: 2)')
+    parser.add_argument('--channels', type=int, default=3,
+                       help='Input channels (default: 4)')
+    parser.add_argument('--out_channels', type=int, default=8,
+                       help='Output channels (default: 8)')
+    
+    args = parser.parse_args()
+    
     torch.manual_seed(0)
-
-    # Instantiate your PyTorch model
-    N, C, H, W = 2, 3, 19, 19
+    
+    # 从命令行参数获取配置
+    H = W = args.input_size
+    kernel_size = args.kernel_size
+    N = args.batch_size
+    C = args.channels
+    out_channels = args.out_channels
+    
+    print(f"=== PyTorch Inductor Performance Test ===")
+    print(f"Input size: {H}x{W}")
+    print(f"Kernel size: {kernel_size}")
+    print(f"Batch size: {N}")
+    print(f"Input channels: {C}")
+    print(f"Output channels: {out_channels}")
+    print()
+    
+    # 创建输入数据
     x = torch.randn(N, C, H, W).cuda()
     
-    model = ConvModel(H, W, in_channels=3, out_channels=8, kernel_size=3, stride=1, padding=1).cuda().eval()
-
-    # # Torch-Inductor compilation
-    # scripted_model = torch.compile(model, backend="inductor")
-    # out = scripted_model(x) 
-
-    # Profiling tests
-    kernel_sizes = [3, 5, 7]
-    input_sizes = [32, 64, 128]
-
-    activities = [ProfilerActivity.CPU]
-    if torch.cuda.is_available():
-        device = "cuda"
-        activities += [ProfilerActivity.CUDA]
-
-    test_count = 0
-    results = []
+    # 创建模型
+    model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).cuda().eval()
     
-    for H in input_sizes:
-        W = H
-        x = torch.randn(N, C, H, W).cuda()
-        
-        for kernel_size in kernel_sizes:
-            test_count += 1
-            print(f"Running Test {test_count}: Input size {H}x{W}, Kernel size {kernel_size}")
-            
-            model = ConvModel(H, W, in_channels=3, out_channels=8, kernel_size=kernel_size, stride=1, padding=1).cuda().eval()
-            
-            def run_fn():
-                scripted_model = torch.compile(model, backend="inductor")
-                out = scripted_model(x)
-                return out
+    # 定义run_fn: 包含compile + 推理
+    def run_fn():
+        scripted_model = torch.compile(model, backend="inductor")
+        out = scripted_model(x)
+        return out
+    
+    # 测量compile + 推理的总时间
+    result = measure_kernel_and_host(
+        run_fn, 
+        tag=f"inductor_{H}x{W}_k{kernel_size}"
+    )
+    
 
-            result = measure_kernel_and_host(
-                run_fn, 
-                tag=f"inductor_{H}x{W}_k{kernel_size}"
-            )
-
-            results.append({
-                "test": test_count,
-                "input_size": f"{H}x{W}",
-                "kernel_size": kernel_size,
-                "total_kernel_ms": result["kernel_ms"],
-                "total_host_ms": result["host_ms"]
-            })
-            
-    print("=== Summary ===")
-    print(f"Completed {test_count} tests with PyTorch Inductor")
     print()
-    print("Test | Input Size | Kernel | Total Kernel(ms) | Pure Kernel(ms) | Host(ms)")
-    print("-" * 70)
-    for r in results:
-        print(f"{r['test']:4d} | {r['input_size']:10s} | {r['kernel_size']:6d} | "
-              f"{r['total_kernel_ms']:15.3f} | {r['total_host_ms']:8.3f}")
-
-    # # Test your solution
-    # conv_ref = F.conv2d(x, model.weight, model.bias, stride=1, padding=1)
-    # print("Inductor --- shape check:", out.shape == conv_ref.shape)
-    # print("Inductor --- correctness check:", torch.allclose(out, conv_ref, atol=1e-4))
+    print("=== Results ===")
+    print()
+    print("=== Performance Summary ===")
+    print(f"Total kernel time: {result['kernel_ms']:.3f} ms")
+    print(f"Host time:         {result['host_ms']:.3f} ms")
