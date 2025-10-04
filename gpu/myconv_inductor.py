@@ -83,7 +83,6 @@ if __name__ == "__main__":
                 "input_size": f"{H}x{W}",
                 "kernel_size": kernel_size,
                 "total_kernel_ms": result["kernel_ms"],
-                "total_pure_kernel_ms": result["pure_kernel_ms"],
                 "total_host_ms": result["host_ms"]
             })
             
