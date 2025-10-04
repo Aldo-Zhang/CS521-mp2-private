@@ -16,36 +16,64 @@ def measure_kernel_and_host(run_fn, tag="run"):
 
     ka = prof.key_averages()
 
-    def cuda_ms(e, self_only=True):
+    def cuda_us(e, self_only=True):
         # PyTorch profiler returns time in microseconds (μs)
-        us = (getattr(e, "self_cuda_time_total", None) if self_only else getattr(e, "cuda_time_total", None))
-        if us is None:
-            us = getattr(e, "cuda_time_total", None) if self_only else getattr(e, "self_cuda_time_total", None)
-        return (us or 0.0) / 1000.0  # Convert μs to ms
+        # Try different attribute names
+        us = None
+        if hasattr(e, "self_cuda_time_total"):
+            us = e.self_cuda_time_total
+        elif hasattr(e, "cuda_time_total"):
+            us = e.cuda_time_total
+        elif hasattr(e, "cuda_time"):
+            us = e.cuda_time
+        return us or 0.0
 
-    def cpu_ms(e, self_only=True):
+    def cpu_us(e, self_only=True):
         # PyTorch profiler returns time in microseconds (μs)
-        us = getattr(e, "self_cpu_time_total", None) if self_only else getattr(e, "cpu_time_total", None)
-        if us is None:
-            us = getattr(e, "cpu_time_total", 0.0)
-        return us / 1000.0  # Convert μs to ms
+        us = None
+        if hasattr(e, "self_cpu_time_total"):
+            us = e.self_cpu_time_total
+        elif hasattr(e, "cpu_time_total"):
+            us = e.cpu_time_total
+        elif hasattr(e, "cpu_time"):
+            us = e.cpu_time
+        return us or 0.0
 
-    total_kernel_ms = sum(cuda_ms(e, self_only=True) for e in ka)
-    total_host_ms   = sum(cpu_ms(e,  self_only=True) for e in ka)
+    # 计算总时间（微秒）
+    total_kernel_us = sum(cuda_us(e, self_only=True) for e in ka)
+    total_host_us   = sum(cpu_us(e,  self_only=True) for e in ka)
     
-    # 添加调试信息
-    print(f"[DEBUG] Total CUDA events: {len([e for e in ka if cuda_ms(e) > 0])}")
-    print(f"[DEBUG] Total CPU events: {len([e for e in ka if cpu_ms(e) > 0])}")
+    # 转换为毫秒
+    total_kernel_ms = total_kernel_us / 1000.0
+    total_host_ms = total_host_us / 1000.0
+    
+    # 添加详细调试信息
+    print(f"[DEBUG] Total events: {len(ka)}")
+    print(f"[DEBUG] CUDA events with time > 0: {len([e for e in ka if cuda_us(e) > 0])}")
+    print(f"[DEBUG] CPU events with time > 0: {len([e for e in ka if cpu_us(e) > 0])}")
+    
+    # 显示所有事件的基本信息
+    print(f"[DEBUG] Event details:")
+    for i, e in enumerate(ka[:10]):  # 只显示前10个事件
+        cuda_time = cuda_us(e)
+        cpu_time = cpu_us(e)
+        print(f"  Event {i}: {e.key}")
+        print(f"    CUDA time: {cuda_time:.3f} μs")
+        print(f"    CPU time:  {cpu_time:.3f} μs")
+        print(f"    Count:     {getattr(e, 'count', 'N/A')}")
     
     # 显示前几个最耗时的CUDA操作
-    cuda_events = [(e.key, cuda_ms(e)) for e in ka if cuda_ms(e) > 0]
+    cuda_events = [(e.key, cuda_us(e)) for e in ka if cuda_us(e) > 0]
     cuda_events.sort(key=lambda x: x[1], reverse=True)
-    print(f"[DEBUG] Top CUDA operations:")
-    for key, time_ms in cuda_events[:5]:
-        print(f"  {key}: {time_ms:.3f} ms")
+    print(f"[DEBUG] Top CUDA operations (μs):")
+    for key, time_us in cuda_events[:5]:
+        print(f"  {key}: {time_us:.3f} μs")
 
     return {"kernel_ms": total_kernel_ms,
-            "host_ms": total_host_ms, "prof": prof}
+            "kernel_us": total_kernel_us,
+            "host_ms": total_host_ms,
+            "host_us": total_host_us,
+            "prof": prof}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='PyTorch Inductor Performance Test')
@@ -102,6 +130,6 @@ if __name__ == "__main__":
     print("=== Results ===")
     print()
     print("=== Performance Summary ===")
-    print(f"Total kernel time: {result['kernel_ms']:.3f} ms (CUDA operations)")
-    print(f"Host time:         {result['host_ms']:.3f} ms (CPU operations)")
-    print(f"Total time:        {result['kernel_ms'] + result['host_ms']:.3f} ms")
+    print(f"Total kernel time: {result['kernel_us']:.3f} μs ({result['kernel_ms']:.3f} ms) - CUDA operations")
+    print(f"Host time:         {result['host_us']:.3f} μs ({result['host_ms']:.3f} ms) - CPU operations")
+    print(f"Total time:        {result['kernel_us'] + result['host_us']:.3f} μs ({(result['kernel_ms'] + result['host_ms']):.3f} ms)")
