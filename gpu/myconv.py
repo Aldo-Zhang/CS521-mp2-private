@@ -123,59 +123,59 @@ if __name__ == "__main__":
     _ = F.conv2d(x, model.weight, model.bias, stride=1, padding=1)  # warmup 2
     torch.cuda.synchronize()
 
-    # # Test1 input size 32 * 32 Kernel Size: 3
-    # torch.cuda.synchronize()
-    # with profile(activities=activities, record_shapes=True) as prof1:
-    #     with record_function("model_inference"):
-    #         out = model(x)
-    #     torch.cuda.synchronize()
+    # Test1 input size 32 * 32 Kernel Size: 3
+    torch.cuda.synchronize()
+    with profile(activities=activities, record_shapes=True) as prof1:
+        with record_function("model_inference"):
+            out = model(x)
+        torch.cuda.synchronize()
 
-    # # Test2 input size 32 * 32 Kernel Size: 5
-    # kernel_size = 5
-    # model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
-    # torch.cuda.synchronize()
-    # with profile(activities=activities, record_shapes=True) as prof2:
-    #     with record_function("model_inference"):
-    #         out = model(x)
-    #     torch.cuda.synchronize()
+    # Test2 input size 32 * 32 Kernel Size: 5
+    kernel_size = 5
+    model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
+    torch.cuda.synchronize()
+    with profile(activities=activities, record_shapes=True) as prof2:
+        with record_function("model_inference"):
+            out = model(x)
+        torch.cuda.synchronize()
 
-    # # Test3 input size 32 * 32 Kernel Size: 7
-    # kernel_size = 7
-    # model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
-    # torch.cuda.synchronize()
-    # with profile(activities=activities, record_shapes=True) as prof3:
-    #     with record_function("model_inference"):
-    #         out = model(x)
-    #     torch.cuda.synchronize()
-    # # Test4 input size 64 * 64 Kernel Size: 3
-    # kernel_size = 3
-    # H, W = 64, 64
-    # x = torch.randn(N, C, H, W).cuda()
-    # model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
-    # torch.cuda.synchronize()
-    # with profile(activities=activities, record_shapes=True) as prof4:
-    #     with record_function("model_inference"):
-    #         out = model(x)
-    #     torch.cuda.synchronize()
+    # Test3 input size 32 * 32 Kernel Size: 7
+    kernel_size = 7
+    model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
+    torch.cuda.synchronize()
+    with profile(activities=activities, record_shapes=True) as prof3:
+        with record_function("model_inference"):
+            out = model(x)
+        torch.cuda.synchronize()
+    # Test4 input size 64 * 64 Kernel Size: 3
+    kernel_size = 3
+    H, W = 64, 64
+    x = torch.randn(N, C, H, W).cuda()
+    model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
+    torch.cuda.synchronize()
+    with profile(activities=activities, record_shapes=True) as prof4:
+        with record_function("model_inference"):
+            out = model(x)
+        torch.cuda.synchronize()
 
-    # # Test5 input size 64 * 64 Kernel Size: 5
-    # kernel_size = 5
-    # model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
-    # torch.cuda.synchronize()
-    # with profile(activities=activities, record_shapes=True) as prof5:
-    #     with record_function("model_inference"):
-    #         out = model(x)
-    #     torch.cuda.synchronize()
+    # Test5 input size 64 * 64 Kernel Size: 5
+    kernel_size = 5
+    model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
+    torch.cuda.synchronize()
+    with profile(activities=activities, record_shapes=True) as prof5:
+        with record_function("model_inference"):
+            out = model(x)
+        torch.cuda.synchronize()
 
-    # # Test6 input size 64 * 64 Kernel Size: 7
-    # kernel_size = 7
-    # model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
-    # torch.cuda.synchronize()
-    # with profile(activities=activities, record_shapes=True) as prof6:
-    #     with record_function("model_inference"):
-    #         out = model(x)
-    #     torch.cuda.synchronize()
-    # Test7 input size 128 * 128 Kernel Size: 3
+    # Test6 input size 64 * 64 Kernel Size: 7
+    kernel_size = 7
+    model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1).to(x.device)
+    torch.cuda.synchronize()
+    with profile(activities=activities, record_shapes=True) as prof6:
+        with record_function("model_inference"):
+            out = model(x)
+        torch.cuda.synchronize()
+    #Test7 input size 128 * 128 Kernel Size: 3
     kernel_size = 3
     H, W = 128, 128
     x = torch.randn(N, C, H, W).cuda()
@@ -211,12 +211,12 @@ if __name__ == "__main__":
     #         out = model(x)
     #     torch.cuda.synchronize()
 
-    # prof1.export_chrome_trace("baseline_trace_test_1.json")
-    # prof2.export_chrome_trace("baseline_trace_test_2.json")
-    # prof3.export_chrome_trace("baseline_trace_test_3.json")
-    # prof4.export_chrome_trace("baseline_trace_test_4.json")
-    # prof5.export_chrome_trace("baseline_trace_test_5.json")
-    # prof6.export_chrome_trace("baseline_trace_test_6.json")
+    prof1.export_chrome_trace("baseline_trace_test_1.json")
+    prof2.export_chrome_trace("baseline_trace_test_2.json")
+    prof3.export_chrome_trace("baseline_trace_test_3.json")
+    prof4.export_chrome_trace("baseline_trace_test_4.json")
+    prof5.export_chrome_trace("baseline_trace_test_5.json")
+    prof6.export_chrome_trace("baseline_trace_test_6.json")
     prof7.export_chrome_trace("baseline_trace_test_7.json")
     # prof8.export_chrome_trace("baseline_trace_test_8.json")
     # prof9.export_chrome_trace("baseline_trace_test_9.json")
