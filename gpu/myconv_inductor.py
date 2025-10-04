@@ -54,7 +54,7 @@ if __name__ == "__main__":
     H = 32
     W = H
     x = torch.randn(N, C, H, W).cuda()
-    kernel_size = 5
+    kernel_size = 7
     
     print(f"Input size {H}x{W}, Kernel size {kernel_size}")
     
@@ -67,7 +67,7 @@ if __name__ == "__main__":
             out = scripted_model(x)
         torch.cuda.synchronize()
     
-    prof.export_chrome_trace(f"inductor_trace_test_2.json")
+    prof.export_chrome_trace(f"inductor_trace_test_3.json")
 
     # # Test your solution
     # conv_ref = F.conv2d(x, model.weight, model.bias, stride=1, padding=1)
