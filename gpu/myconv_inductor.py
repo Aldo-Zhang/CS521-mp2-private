@@ -28,27 +28,47 @@ if __name__ == "__main__":
 
     test_count = 0
     
-    for H in input_sizes:
-        W = H
-        x = torch.randn(N, C, H, W).cuda()
+    # for H in input_sizes:
+    #     W = H
+    #     x = torch.randn(N, C, H, W).cuda()
         
-        for kernel_size in kernel_sizes:
-            test_count += 1
-            print(f"Running Test {test_count}: Input size {H}x{W}, Kernel size {kernel_size}")
+    #     for kernel_size in kernel_sizes:
+    #         test_count += 1
+    #         print(f"Running Test {test_count}: Input size {H}x{W}, Kernel size {kernel_size}")
             
-            model = ConvModel(H, W, in_channels=3, out_channels=8, kernel_size=3, stride=1, padding=1).cuda().eval()
+    #         model = ConvModel(H, W, in_channels=3, out_channels=8, kernel_size=kernel_size, stride=1, padding=1).cuda().eval()
             
-            torch.cuda.synchronize()
-            with profile(activities=activities, record_shapes=True) as prof:
-                with record_function("inductor_model_inference"):
-                    scripted_model = torch.compile(model, backend="inductor")
-                    out = scripted_model(x)
-                torch.cuda.synchronize()
+    #         torch.cuda.synchronize()
+    #         with profile(activities=activities, record_shapes=True) as prof:
+    #             with record_function("inductor_model_inference"):
+    #                 scripted_model = torch.compile(model, backend="inductor")
+    #                 out = scripted_model(x)
+    #             torch.cuda.synchronize()
             
-            prof.export_chrome_trace(f"inductor_trace_test_{test_count}.json")
+    #         prof.export_chrome_trace(f"inductor_trace_test_{test_count}.json")
             
-    print(f"Completed {test_count} tests with PyTorch Inductor")
+    # print(f"Completed {test_count} tests with PyTorch Inductor")
     
+    # Test profiler one by one due to memory constrains
+
+    H = 32
+    W = H
+    x = torch.randn(N, C, H, W).cuda()
+    kernel_size = 5
+    
+    print(f"Input size {H}x{W}, Kernel size {kernel_size}")
+    
+    model = ConvModel(H, W, in_channels=3, out_channels=8, kernel_size=kernel_size, stride=1, padding=1).cuda().eval()
+    
+    torch.cuda.synchronize()
+    with profile(activities=activities, record_shapes=True) as prof:
+        with record_function("inductor_model_inference"):
+            scripted_model = torch.compile(model, backend="inductor")
+            out = scripted_model(x)
+        torch.cuda.synchronize()
+    
+    prof.export_chrome_trace(f"inductor_trace_test_2.json")
+
     # # Test your solution
     # conv_ref = F.conv2d(x, model.weight, model.bias, stride=1, padding=1)
     # print("Inductor --- shape check:", out.shape == conv_ref.shape)
