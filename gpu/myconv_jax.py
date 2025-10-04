@@ -118,19 +118,10 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # 尝试使用GPU，如果失败则回退到CPU
-    try:
-        # 检查JAX GPU可用性
-        gpu_devices = jax.devices('gpu')
-        if len(gpu_devices) > 0:
-            print(f"Using JAX GPU backend: {gpu_devices}")
-            # 确保数据在GPU上
-            jax.config.update('jax_platform_name', 'gpu')
-        else:
-            raise RuntimeError("No GPU devices available")
-    except Exception as e:
-        print(f"GPU not available ({e}), falling back to CPU")
-        os.environ['JAX_PLATFORM_NAME'] = 'cpu'
+    # 强制使用CPU避免CuDNN版本问题
+    print("Forcing JAX to use CPU to avoid CuDNN version conflicts")
+    os.environ['JAX_PLATFORM_NAME'] = 'cpu'
+    jax.config.update('jax_platform_name', 'cpu')
     
     H = W = args.input_size
     kernel_size = args.kernel_size

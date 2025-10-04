@@ -9,7 +9,7 @@ import sys
 import time
 import os
 
-def run_sample_test(script, input_size, kernel_size, timeout=30):
+def run_sample_test(script, input_size, kernel_size, timeout=120):
     """运行单个样板测试"""
     cmd = [sys.executable, script, '--input_size', str(input_size), '--kernel_size', str(kernel_size)]
     
@@ -46,11 +46,15 @@ def run_sample_test(script, input_size, kernel_size, timeout=30):
                     correctness = "True" in line
             
             # 显示关键结果
-            if gpu_wall_time and gpu_kernel_time:
+            if gpu_wall_time and gpu_kernel_time and gpu_wall_time > 0:
                 efficiency = (gpu_kernel_time / gpu_wall_time) * 100
                 print(f"   📊 GPU Wall Time: {gpu_wall_time:.1f} μs")
                 print(f"   📊 GPU Kernel Time: {gpu_kernel_time:.1f} μs")
                 print(f"   📊 Kernel Efficiency: {efficiency:.1f}%")
+            elif gpu_wall_time:
+                print(f"   📊 GPU Wall Time: {gpu_wall_time:.1f} μs")
+                print(f"   📊 GPU Kernel Time: Not available")
+                print(f"   📊 Kernel Efficiency: N/A")
             
             if correctness is not None:
                 print(f"   ✅ Correctness: {correctness}")

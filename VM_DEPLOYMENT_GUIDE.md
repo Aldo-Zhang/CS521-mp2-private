@@ -16,7 +16,13 @@ rsync -avz --exclude='__pycache__' /Users/aldo/UIUC/25Fall/CS521/MP2/mp2/ userna
 # 进入项目目录
 cd /path/to/project
 
-# 运行样板测试（小模型，快速验证）
+# 首先运行修复脚本（解决JAX CuDNN问题）
+python3 fix_vm_issues.py
+
+# 运行快速测试（只测试一个最小配置）
+python3 quick_test.py
+
+# 如果快速测试通过，运行完整样板测试
 python3 sample_test.py
 ```
 
