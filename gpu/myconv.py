@@ -189,7 +189,7 @@ if __name__ == "__main__":
     # Test8 input size 128 * 128 Kernel Size: 5
     H, W = 128, 128
     kernel_size = 5
-
+    x = torch.randn(N, C, H, W).cuda()
     # Warmup
     torch.cuda.synchronize()
     _ = model(x)                 # warmup 1
