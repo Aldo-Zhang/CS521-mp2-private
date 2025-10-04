@@ -24,8 +24,8 @@ def measure_kernel_and_host(run_fn, tag="run"):
             us = e.self_cuda_time_total
         elif hasattr(e, "cuda_time_total"):
             us = e.cuda_time_total
-        elif hasattr(e, "cuda_time"):
-            us = e.cuda_time
+        elif hasattr(e, "device_time"):  # Use device_time instead of deprecated cuda_time
+            us = e.device_time
         return us or 0.0
 
     def cpu_us(e, self_only=True):
@@ -39,9 +39,27 @@ def measure_kernel_and_host(run_fn, tag="run"):
             us = e.cpu_time
         return us or 0.0
 
+    # 过滤掉编译相关的操作
+    def is_compilation_event(e):
+        key = e.key.lower()
+        compilation_keywords = [
+            'dynamo', 'compile', 'graph', 'pass', 'joint', 'recursive',
+            'inductor', 'torch-compiled', 'compiledfunction'
+        ]
+        return any(keyword in key for keyword in compilation_keywords)
+    
+    # 只计算实际的kernel操作时间
+    kernel_events = [e for e in ka if not is_compilation_event(e) and cuda_us(e) > 0]
+    cpu_events = [e for e in ka if not is_compilation_event(e) and cpu_us(e) > 0]
+    
     # 计算总时间（微秒）
-    total_kernel_us = sum(cuda_us(e, self_only=True) for e in ka)
-    total_host_us   = sum(cpu_us(e,  self_only=True) for e in ka)
+    total_kernel_us = sum(cuda_us(e, self_only=True) for e in kernel_events)
+    total_host_us   = sum(cpu_us(e,  self_only=True) for e in cpu_events)
+    
+    # 计算编译时间
+    compilation_events = [e for e in ka if is_compilation_event(e)]
+    compilation_cuda_us = sum(cuda_us(e, self_only=True) for e in compilation_events)
+    compilation_cpu_us = sum(cpu_us(e, self_only=True) for e in compilation_events)
     
     # 转换为毫秒
     total_kernel_ms = total_kernel_us / 1000.0
@@ -49,30 +67,28 @@ def measure_kernel_and_host(run_fn, tag="run"):
     
     # 添加详细调试信息
     print(f"[DEBUG] Total events: {len(ka)}")
-    print(f"[DEBUG] CUDA events with time > 0: {len([e for e in ka if cuda_us(e) > 0])}")
-    print(f"[DEBUG] CPU events with time > 0: {len([e for e in ka if cpu_us(e) > 0])}")
+    print(f"[DEBUG] Compilation events: {len(compilation_events)}")
+    print(f"[DEBUG] Kernel events (filtered): {len(kernel_events)}")
+    print(f"[DEBUG] CPU events (filtered): {len(cpu_events)}")
     
-    # 显示所有事件的基本信息
-    print(f"[DEBUG] Event details:")
-    for i, e in enumerate(ka[:10]):  # 只显示前10个事件
-        cuda_time = cuda_us(e)
-        cpu_time = cpu_us(e)
-        print(f"  Event {i}: {e.key}")
-        print(f"    CUDA time: {cuda_time:.3f} μs")
-        print(f"    CPU time:  {cpu_time:.3f} μs")
-        print(f"    Count:     {getattr(e, 'count', 'N/A')}")
+    # 显示编译时间
+    print(f"[DEBUG] Compilation time:")
+    print(f"  CUDA: {compilation_cuda_us:.3f} μs ({compilation_cuda_us/1000:.3f} ms)")
+    print(f"  CPU:  {compilation_cpu_us:.3f} μs ({compilation_cpu_us/1000:.3f} ms)")
     
-    # 显示前几个最耗时的CUDA操作
-    cuda_events = [(e.key, cuda_us(e)) for e in ka if cuda_us(e) > 0]
-    cuda_events.sort(key=lambda x: x[1], reverse=True)
-    print(f"[DEBUG] Top CUDA operations (μs):")
-    for key, time_us in cuda_events[:5]:
+    # 显示前几个最耗时的kernel操作
+    kernel_events_sorted = [(e.key, cuda_us(e)) for e in kernel_events]
+    kernel_events_sorted.sort(key=lambda x: x[1], reverse=True)
+    print(f"[DEBUG] Top kernel operations (μs):")
+    for key, time_us in kernel_events_sorted[:5]:
         print(f"  {key}: {time_us:.3f} μs")
 
     return {"kernel_ms": total_kernel_ms,
             "kernel_us": total_kernel_us,
             "host_ms": total_host_ms,
             "host_us": total_host_us,
+            "compilation_cuda_us": compilation_cuda_us,
+            "compilation_cpu_us": compilation_cpu_us,
             "prof": prof}
 
 if __name__ == "__main__":
@@ -130,6 +146,9 @@ if __name__ == "__main__":
     print("=== Results ===")
     print()
     print("=== Performance Summary ===")
-    print(f"Total kernel time: {result['kernel_us']:.3f} μs ({result['kernel_ms']:.3f} ms) - CUDA operations")
-    print(f"Host time:         {result['host_us']:.3f} μs ({result['host_ms']:.3f} ms) - CPU operations")
-    print(f"Total time:        {result['kernel_us'] + result['host_us']:.3f} μs ({(result['kernel_ms'] + result['host_ms']):.3f} ms)")
+    print(f"Kernel time (inference): {result['kernel_us']:.3f} μs ({result['kernel_ms']:.3f} ms) - CUDA operations")
+    print(f"Host time (inference):   {result['host_us']:.3f} μs ({result['host_ms']:.3f} ms) - CPU operations")
+    print(f"Compilation CUDA time:   {result['compilation_cuda_us']:.3f} μs ({result['compilation_cuda_us']/1000:.3f} ms)")
+    print(f"Compilation CPU time:    {result['compilation_cpu_us']:.3f} μs ({result['compilation_cpu_us']/1000:.3f} ms)")
+    print(f"Total inference time:    {result['kernel_us'] + result['host_us']:.3f} μs ({(result['kernel_ms'] + result['host_ms']):.3f} ms)")
+    print(f"Total time (all):        {result['kernel_us'] + result['host_us'] + result['compilation_cuda_us'] + result['compilation_cpu_us']:.3f} μs")
