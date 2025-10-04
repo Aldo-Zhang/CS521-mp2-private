@@ -20,7 +20,7 @@ echo "📁 Results will be saved to: $RESULTS_FILE"
 echo ""
 
 # 实验配置
-ALL_INPUT_SIZES=(16 32 64 128)  # 所有输入尺寸，包括128×128
+ALL_INPUT_SIZES=(16 32 64)      # 所有输入尺寸，取消128×128避免JAX卡住
 ALL_KERNEL_SIZES=(3 5 7)        # 所有卷积核尺寸
 INDUCTOR_INPUT_SIZES=(16 32)    # Inductor只跑小尺寸
 INDUCTOR_KERNEL_SIZES=(3 5 7)   # Inductor跑所有卷积核尺寸
@@ -90,13 +90,13 @@ echo "💾 Saving results to Git..."
 
 # Git操作
 git add results/ plots/ gpu/*.py *.py *.sh
-git commit -m "Complete VM Experiment Results - $TIMESTAMP
+git commit -m "Stable VM Experiment Results - $TIMESTAMP
 
-- PyTorch Baseline & JAX: all sizes (16,32,64,128) x all kernels (3,5,7) = 24 experiments
+- PyTorch Baseline & JAX: sizes (16,32,64) x all kernels (3,5,7) = 18 experiments
 - PyTorch Inductor: small sizes (16,32) x all kernels (3,5,7) = 6 experiments  
-- Total experiments: 30
+- Total experiments: 24
 - Timestamp: $TIMESTAMP
-- Complete kernel size coverage for all frameworks"
+- Removed 128x128 to avoid JAX hanging issues"
 
 echo "✅ Results committed to Git"
 
