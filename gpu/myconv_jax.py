@@ -6,6 +6,9 @@ import numpy as np
 import torch
 from myconv import ConvModel
 import jax.profiler
+import argparse
+import time
+import os
 
 # Create a log directory
 logdir = "./jax_trace"
@@ -80,37 +83,114 @@ def conv2d_manual_jax(x, weight, bias, stride=1, padding=1):
     out = out.reshape(N, C_out, out_h, out_w)                         
     return out
 
-if __name__ == "__main__":
-    # Instantiate PyTorch model
-    H, W = 33, 33
-    model = ConvModel(H, W, in_channels=3, out_channels=8, kernel_size=5, stride=1, padding=1)
-    model.eval()
-
-    # Example input
-    x_torch = torch.randn(1, 3, H, W)
-
-    # Export weights and biases
-    params = {
-        "weight": model.weight.detach().cpu().numpy(),  # shape (out_channels, in_channels, KH, KW)
-        "bias": model.bias.detach().cpu().numpy()       # shape (out_channels,)
+def measure_jax_performance(run_fn, tag="jax_run"):
+    """测量JAX性能 - 使用wall time"""
+    print(f"[{tag}] Measuring JAX performance...")
+    
+    # 使用wall time测量总时间
+    start_time = time.time()
+    result = run_fn()
+    end_time = time.time()
+    
+    total_time_us = (end_time - start_time) * 1_000_000  # 转换为微秒
+    total_time_ms = total_time_us / 1000.0
+    
+    print(f"[{tag}] Total wall time: {total_time_us:.3f} μs ({total_time_ms:.3f} ms)")
+    
+    return {
+        "total_time_us": total_time_us,
+        "total_time_ms": total_time_ms,
+        "result": result
     }
 
-    # Convert model input, weights and bias into jax arrays
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='JAX Performance Test')
+    parser.add_argument('--input_size', type=int, required=True, 
+                       help='Input size (H=W, e.g., 32 for 32x32)')
+    parser.add_argument('--kernel_size', type=int, required=True,
+                       help='Kernel size (e.g., 3, 5, 7)')
+    parser.add_argument('--batch_size', type=int, default=2,
+                       help='Batch size (default: 2)')
+    parser.add_argument('--channels', type=int, default=3,
+                       help='Input channels (default: 3)')
+    parser.add_argument('--out_channels', type=int, default=8,
+                       help='Output channels (default: 8)')
+    
+    args = parser.parse_args()
+    
+    # 尝试使用GPU，如果失败则回退到CPU
+    try:
+        # 检查JAX GPU可用性
+        gpu_devices = jax.devices('gpu')
+        if len(gpu_devices) > 0:
+            print(f"Using JAX GPU backend: {gpu_devices}")
+            # 确保数据在GPU上
+            jax.config.update('jax_platform_name', 'gpu')
+        else:
+            raise RuntimeError("No GPU devices available")
+    except Exception as e:
+        print(f"GPU not available ({e}), falling back to CPU")
+        os.environ['JAX_PLATFORM_NAME'] = 'cpu'
+    
+    H = W = args.input_size
+    kernel_size = args.kernel_size
+    N = args.batch_size
+    C = args.channels
+    out_channels = args.out_channels
+    
+    print(f"=== JAX Performance Test ===")
+    print(f"Input size: {H}x{W}")
+    print(f"Kernel size: {kernel_size}")
+    print(f"Batch size: {N}")
+    print(f"Input channels: {C}")
+    print(f"Output channels: {out_channels}")
+    print(f"JAX platform: {jax.default_backend()}")
+    print(f"JAX devices: {jax.devices()}")
+    print()
+    
+    # 创建PyTorch模型作为参考
+    model = ConvModel(H, W, C, out_channels, kernel_size, stride=1, padding=1)
+    model.eval()
+
+    # 创建输入数据
+    x_torch = torch.randn(N, C, H, W)
+
+    # 导出权重和偏置
+    params = {
+        "weight": model.weight.detach().cpu().numpy(),
+        "bias": model.bias.detach().cpu().numpy()
+    }
+
+    # 转换为JAX数组
     x_jax = jnp.array(x_torch.numpy())
     weight_jax = jnp.array(params["weight"])
     bias_jax = jnp.array(params["bias"])
 
-    # enable JIT compilation
+    # 启用JIT编译
     conv2d_manual_jax_jit = jit(conv2d_manual_jax)
 
-    # call your JAX function
-    # Add jax profiler
-    with jax.profiler.trace(logdir, create_perfetto_link=True):
+    # 定义运行函数
+    def run_jax():
         out_jax = conv2d_manual_jax_jit(x_jax, weight_jax, bias_jax)
         out_jax.block_until_ready()
+        return out_jax
 
-    # Test your solution
+    # 测量性能
+    result = measure_jax_performance(run_jax, f"jax_{H}x{W}_k{kernel_size}")
+
+    # 正确性测试
+    out_jax = result["result"]
     conv_ref = F.conv2d(x_torch, model.weight, model.bias, stride=1, padding=1)
-    out_jax_torch = torch.from_numpy(np.array(out_jax)).to(conv_ref.dtype) # convert jax output to torch
-    print("JAX --- shape check:", out_jax_torch.shape == conv_ref.shape)
-    print("JAX --- correctness check:", torch.allclose(out_jax_torch, conv_ref, atol=1e-1))
+    out_jax_torch = torch.from_numpy(np.array(out_jax)).to(conv_ref.dtype)
+    shape_check = out_jax_torch.shape == conv_ref.shape
+    correctness_check = torch.allclose(out_jax_torch, conv_ref, atol=1e-1)
+    
+    print()
+    print("=== Results ===")
+    print()
+    print("=== Performance Summary ===")
+    print(f"Total wall time: {result['total_time_us']:.3f} μs ({result['total_time_ms']:.3f} ms)")
+    print()
+    print("=== Correctness Check ===")
+    print(f"Shape check: {shape_check}")
+    print(f"Correctness check: {correctness_check}")

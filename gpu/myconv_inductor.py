@@ -39,7 +39,6 @@ def measure_kernel_and_host(run_fn, tag="run"):
             us = e.cpu_time
         return us or 0.0
 
-    # 过滤掉编译相关的操作
     def is_compilation_event(e):
         key = e.key.lower()
         compilation_keywords = [
@@ -48,48 +47,107 @@ def measure_kernel_and_host(run_fn, tag="run"):
         ]
         return any(keyword in key for keyword in compilation_keywords)
     
-    # 只计算实际的kernel操作时间
-    kernel_events = [e for e in ka if not is_compilation_event(e) and cuda_us(e) > 0]
-    cpu_events = [e for e in ka if not is_compilation_event(e) and cpu_us(e) > 0]
-    
-    # 计算总时间（微秒）
-    total_kernel_us = sum(cuda_us(e, self_only=True) for e in kernel_events)
-    total_host_us   = sum(cpu_us(e,  self_only=True) for e in cpu_events)
+    # 分类所有事件
+    compilation_events = [e for e in ka if is_compilation_event(e)]
+    inference_events = [e for e in ka if not is_compilation_event(e)]
     
     # 计算编译时间
-    compilation_events = [e for e in ka if is_compilation_event(e)]
     compilation_cuda_us = sum(cuda_us(e, self_only=True) for e in compilation_events)
     compilation_cpu_us = sum(cpu_us(e, self_only=True) for e in compilation_events)
     
+    # 计算推理时间
+    inference_cuda_us = sum(cuda_us(e, self_only=True) for e in inference_events)
+    inference_cpu_us = sum(cpu_us(e, self_only=True) for e in inference_events)
+    
+    # 计算总时间（所有事件）
+    total_cuda_us = sum(cuda_us(e, self_only=True) for e in ka)
+    total_cpu_us = sum(cpu_us(e, self_only=True) for e in ka)
+    
+    # 验证时间计算
+    print(f"[DEBUG] Time verification:")
+    print(f"  Compilation CUDA: {compilation_cuda_us:.3f} μs")
+    print(f"  Compilation CPU:  {compilation_cpu_us:.3f} μs")
+    print(f"  Inference CUDA:   {inference_cuda_us:.3f} μs")
+    print(f"  Inference CPU:    {inference_cpu_us:.3f} μs")
+    print(f"  Total CUDA:       {total_cuda_us:.3f} μs")
+    print(f"  Total CPU:        {total_cpu_us:.3f} μs")
+    print(f"  Sum verification: {compilation_cuda_us + compilation_cpu_us + inference_cuda_us + inference_cpu_us:.3f} μs")
+    
     # 转换为毫秒
-    total_kernel_ms = total_kernel_us / 1000.0
-    total_host_ms = total_host_us / 1000.0
+    inference_kernel_ms = inference_cuda_us / 1000.0
+    inference_host_ms = inference_cpu_us / 1000.0
+    compilation_kernel_ms = compilation_cuda_us / 1000.0
+    compilation_host_ms = compilation_cpu_us / 1000.0
     
     # 添加详细调试信息
     print(f"[DEBUG] Total events: {len(ka)}")
     print(f"[DEBUG] Compilation events: {len(compilation_events)}")
-    print(f"[DEBUG] Kernel events (filtered): {len(kernel_events)}")
-    print(f"[DEBUG] CPU events (filtered): {len(cpu_events)}")
+    print(f"[DEBUG] Inference events: {len(inference_events)}")
     
-    # 显示编译时间
-    print(f"[DEBUG] Compilation time:")
-    print(f"  CUDA: {compilation_cuda_us:.3f} μs ({compilation_cuda_us/1000:.3f} ms)")
-    print(f"  CPU:  {compilation_cpu_us:.3f} μs ({compilation_cpu_us/1000:.3f} ms)")
+    # 分析推理GPU时间组成
+    inference_cuda_events = [(e.key, cuda_us(e), cpu_us(e)) for e in inference_events if cuda_us(e) > 0]
+    inference_cuda_events.sort(key=lambda x: x[1], reverse=True)
     
-    # 显示前几个最耗时的kernel操作
-    kernel_events_sorted = [(e.key, cuda_us(e)) for e in kernel_events]
-    kernel_events_sorted.sort(key=lambda x: x[1], reverse=True)
-    print(f"[DEBUG] Top kernel operations (μs):")
-    for key, time_us in kernel_events_sorted[:5]:
-        print(f"  {key}: {time_us:.3f} μs")
+    # 分类推理GPU操作
+    inference_kernel_ops = []
+    inference_memory_ops = []
+    inference_other_ops = []
+    
+    for key, cuda_time, cpu_time in inference_cuda_events:
+        if 'memcpy' in key.lower() or 'memset' in key.lower():
+            inference_memory_ops.append((key, cuda_time, cpu_time))
+        elif any(kw in key.lower() for kw in ['conv', 'gemm', 'add', 'mul', 'relu']):
+            inference_kernel_ops.append((key, cuda_time, cpu_time))
+        else:
+            inference_other_ops.append((key, cuda_time, cpu_time))
+    
+    # 计算推理各类操作的时间
+    inference_kernel_time = sum(cuda_time for _, cuda_time, _ in inference_kernel_ops)
+    inference_memory_time = sum(cuda_time for _, cuda_time, _ in inference_memory_ops)
+    inference_other_time = sum(cuda_time for _, cuda_time, _ in inference_other_ops)
+    
+    print(f"[DEBUG] Inference GPU Time Analysis:")
+    print(f"  Total inference GPU time: {inference_cuda_us:.3f} μs")
+    print(f"  Pure kernel operations: {inference_kernel_time:.3f} μs ({inference_kernel_time/inference_cuda_us*100:.1f}%)")
+    print(f"  Memory operations: {inference_memory_time:.3f} μs ({inference_memory_time/inference_cuda_us*100:.1f}%)")
+    print(f"  Other operations: {inference_other_time:.3f} μs ({inference_other_time/inference_cuda_us*100:.1f}%)")
+    
+    print(f"[DEBUG] Top inference GPU operations:")
+    for key, cuda_time, cpu_time in inference_cuda_events[:5]:
+        print(f"  {key:40s} GPU: {cuda_time:8.3f} μs  CPU: {cpu_time:8.3f} μs")
+    
+    # 显示编译操作
+    compilation_cuda_events = [(e.key, cuda_us(e), cpu_us(e)) for e in compilation_events if cuda_us(e) > 0]
+    compilation_cuda_events.sort(key=lambda x: x[1], reverse=True)
+    print(f"[DEBUG] Top compilation operations:")
+    for key, cuda_time, cpu_time in compilation_cuda_events[:3]:
+        print(f"  {key:40s} GPU: {cuda_time:8.3f} μs  CPU: {cpu_time:8.3f} μs")
+    
+    # 计算GPU wall time和kernel time
+    gpu_wall_time = inference_cuda_us
+    gpu_kernel_time = inference_kernel_time
+    
+    print(f"[DEBUG] GPU Time Breakdown:")
+    print(f"  GPU Wall Time (inference): {gpu_wall_time:.3f} μs")
+    print(f"  GPU Kernel Time (pure): {gpu_kernel_time:.3f} μs")
+    print(f"  GPU Overhead: {gpu_wall_time - gpu_kernel_time:.3f} μs ({((gpu_wall_time - gpu_kernel_time)/gpu_wall_time*100):.1f}%)")
 
-    return {"kernel_ms": total_kernel_ms,
-            "kernel_us": total_kernel_us,
-            "host_ms": total_host_ms,
-            "host_us": total_host_us,
-            "compilation_cuda_us": compilation_cuda_us,
-            "compilation_cpu_us": compilation_cpu_us,
-            "prof": prof}
+    return {
+        "inference_kernel_ms": inference_kernel_ms,
+        "inference_kernel_us": inference_cuda_us,
+        "inference_host_ms": inference_host_ms,
+        "inference_host_us": inference_cpu_us,
+        "compilation_cuda_us": compilation_cuda_us,
+        "compilation_cpu_us": compilation_cpu_us,
+        "total_cuda_us": total_cuda_us,
+        "total_cpu_us": total_cpu_us,
+        "gpu_wall_time_us": gpu_wall_time,
+        "gpu_kernel_time_us": gpu_kernel_time,
+        "gpu_overhead_us": gpu_wall_time - gpu_kernel_time,
+        "memory_time_us": inference_memory_time,
+        "other_time_us": inference_other_time,
+        "prof": prof
+    }
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='PyTorch Inductor Performance Test')
@@ -146,9 +204,25 @@ if __name__ == "__main__":
     print("=== Results ===")
     print()
     print("=== Performance Summary ===")
-    print(f"Kernel time (inference): {result['kernel_us']:.3f} μs ({result['kernel_ms']:.3f} ms) - CUDA operations")
-    print(f"Host time (inference):   {result['host_us']:.3f} μs ({result['host_ms']:.3f} ms) - CPU operations")
-    print(f"Compilation CUDA time:   {result['compilation_cuda_us']:.3f} μs ({result['compilation_cuda_us']/1000:.3f} ms)")
-    print(f"Compilation CPU time:    {result['compilation_cpu_us']:.3f} μs ({result['compilation_cpu_us']/1000:.3f} ms)")
-    print(f"Total inference time:    {result['kernel_us'] + result['host_us']:.3f} μs ({(result['kernel_ms'] + result['host_ms']):.3f} ms)")
-    print(f"Total time (all):        {result['kernel_us'] + result['host_us'] + result['compilation_cuda_us'] + result['compilation_cpu_us']:.3f} μs")
+    print(f"GPU Wall Time (inference): {result['gpu_wall_time_us']:.3f} μs ({result['gpu_wall_time_us']/1000:.3f} ms)")
+    print(f"GPU Kernel Time (pure):   {result['gpu_kernel_time_us']:.3f} μs ({result['gpu_kernel_time_us']/1000:.3f} ms)")
+    print(f"GPU Overhead:             {result['gpu_overhead_us']:.3f} μs ({result['gpu_overhead_us']/1000:.3f} ms)")
+    print(f"Memory Operations:        {result['memory_time_us']:.3f} μs ({result['memory_time_us']/1000:.3f} ms)")
+    print(f"Other Operations:         {result['other_time_us']:.3f} μs ({result['other_time_us']/1000:.3f} ms)")
+    print(f"CPU Host Time:            {result['inference_host_us']:.3f} μs ({result['inference_host_ms']:.3f} ms)")
+    print(f"Compilation CUDA time:    {result['compilation_cuda_us']:.3f} μs ({result['compilation_cuda_us']/1000:.3f} ms)")
+    print(f"Compilation CPU time:     {result['compilation_cpu_us']:.3f} μs ({result['compilation_cpu_us']/1000:.3f} ms)")
+    print(f"Total time (all):        {result['total_cuda_us'] + result['total_cpu_us']:.3f} μs ({(result['total_cuda_us'] + result['total_cpu_us'])/1000:.3f} ms)")
+    print()
+    print("=== GPU Time Analysis ===")
+    overhead_percent = (result['gpu_overhead_us'] / result['gpu_wall_time_us']) * 100
+    kernel_percent = (result['gpu_kernel_time_us'] / result['gpu_wall_time_us']) * 100
+    memory_percent = (result['memory_time_us'] / result['gpu_wall_time_us']) * 100
+    print(f"Kernel efficiency: {kernel_percent:.1f}% (pure computation)")
+    print(f"Memory overhead:   {memory_percent:.1f}% (data transfer)")
+    print(f"Other overhead:    {overhead_percent - memory_percent:.1f}% (synchronization, etc.)")
+    print()
+    print("=== Time Breakdown ===")
+    print(f"Inference only:          {result['inference_kernel_us'] + result['inference_host_us']:.3f} μs")
+    print(f"Compilation only:        {result['compilation_cuda_us'] + result['compilation_cpu_us']:.3f} μs")
+    print(f"Verification:            {result['inference_kernel_us'] + result['inference_host_us'] + result['compilation_cuda_us'] + result['compilation_cpu_us']:.3f} μs")
