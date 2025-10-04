@@ -129,6 +129,7 @@ if __name__ == "__main__":
         with record_function("model_inference"):
             out = model(x)
         torch.cuda.synchronize()
+    prof1.export_chrome_trace("baseline_trace_test_1.json")
 
     # Test2 input size 32 * 32 Kernel Size: 5
     kernel_size = 5
@@ -138,6 +139,7 @@ if __name__ == "__main__":
         with record_function("model_inference"):
             out = model(x)
         torch.cuda.synchronize()
+    prof2.export_chrome_trace("baseline_trace_test_2.json")
 
     # Test3 input size 32 * 32 Kernel Size: 7
     kernel_size = 7
@@ -147,6 +149,7 @@ if __name__ == "__main__":
         with record_function("model_inference"):
             out = model(x)
         torch.cuda.synchronize()
+    prof3.export_chrome_trace("baseline_trace_test_3.json")
     # Test4 input size 64 * 64 Kernel Size: 3
     kernel_size = 3
     H, W = 64, 64
@@ -157,6 +160,7 @@ if __name__ == "__main__":
         with record_function("model_inference"):
             out = model(x)
         torch.cuda.synchronize()
+    prof4.export_chrome_trace("baseline_trace_test_4.json")
 
     # Test5 input size 64 * 64 Kernel Size: 5
     kernel_size = 5
@@ -166,6 +170,7 @@ if __name__ == "__main__":
         with record_function("model_inference"):
             out = model(x)
         torch.cuda.synchronize()
+    prof5.export_chrome_trace("baseline_trace_test_5.json")
 
     # Test6 input size 64 * 64 Kernel Size: 7
     kernel_size = 7
@@ -175,6 +180,7 @@ if __name__ == "__main__":
         with record_function("model_inference"):
             out = model(x)
         torch.cuda.synchronize()
+    prof6.export_chrome_trace("baseline_trace_test_6.json")
     #Test7 input size 128 * 128 Kernel Size: 3
     kernel_size = 3
     H, W = 128, 128
@@ -185,6 +191,7 @@ if __name__ == "__main__":
         with record_function("model_inference"):
             out = model(x)
         torch.cuda.synchronize()
+    prof7.export_chrome_trace("baseline_trace_test_7.json")
 
     # # Test8 input size 128 * 128 Kernel Size: 5
     # H, W = 128, 128
@@ -211,13 +218,12 @@ if __name__ == "__main__":
     #         out = model(x)
     #     torch.cuda.synchronize()
 
-    prof1.export_chrome_trace("baseline_trace_test_1.json")
-    prof2.export_chrome_trace("baseline_trace_test_2.json")
-    prof3.export_chrome_trace("baseline_trace_test_3.json")
-    prof4.export_chrome_trace("baseline_trace_test_4.json")
-    prof5.export_chrome_trace("baseline_trace_test_5.json")
-    prof6.export_chrome_trace("baseline_trace_test_6.json")
-    prof7.export_chrome_trace("baseline_trace_test_7.json")
+    
+    # prof3.export_chrome_trace("baseline_trace_test_3.json")
+    
+    # prof5.export_chrome_trace("baseline_trace_test_5.json")
+    # prof6.export_chrome_trace("baseline_trace_test_6.json")
+    # prof7.export_chrome_trace("baseline_trace_test_7.json")
     # prof8.export_chrome_trace("baseline_trace_test_8.json")
     # prof9.export_chrome_trace("baseline_trace_test_9.json")
     # Test your solution (shape and correctness)
