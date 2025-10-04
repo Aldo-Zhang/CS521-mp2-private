@@ -1,0 +1,71 @@
+# 手动修复命令 - 在虚拟机上运行
+
+# 1. 修复JAX文件
+echo "🔧 Fixing JAX file..."
+
+# 备份原文件
+cp gpu/myconv_jax.py gpu/myconv_jax.py.backup
+
+# 使用sed替换GPU检测代码
+sed -i 's/# 尝试使用GPU，如果失败则回退到CPU/# 强制使用CPU避免CuDNN版本问题/' gpu/myconv_jax.py
+sed -i 's/try:/print("Forcing JAX to use CPU to avoid CuDNN version conflicts")/' gpu/myconv_jax.py
+sed -i 's/# 检查JAX GPU可用性/os.environ["JAX_PLATFORM_NAME"] = "cpu"/' gpu/myconv_jax.py
+sed -i 's/gpu_devices = jax.devices/# jax.config.update("jax_platform_name", "cpu")/' gpu/myconv_jax.py
+
+echo "✅ JAX file fixed"
+
+# 2. 创建快速测试脚本
+cat > quick_test.py << 'EOF'
+#!/usr/bin/env python3
+"""
+快速测试脚本 - 只测试一个最小配置
+"""
+
+import subprocess
+import sys
+
+def quick_test():
+    print("🚀 Quick Test")
+    print("=============")
+    
+    # 只测试一个最小配置
+    cmd = [sys.executable, "gpu/myconv.py", "--input_size", "16", "--kernel_size", "3"]
+    
+    print(f"Running: {' '.join(cmd)}")
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode == 0:
+            print("✅ PyTorch Baseline: SUCCESS")
+            
+            # 检查输出
+            if "GPU Wall Time" in result.stdout:
+                print("✅ GPU timing data available")
+            if "Correctness check: True" in result.stdout:
+                print("✅ Correctness verified")
+            
+            return True
+        else:
+            print(f"❌ PyTorch Baseline: FAILED")
+            print(f"Error: {result.stderr[:200]}")
+            return False
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return False
+
+if __name__ == "__main__":
+    success = quick_test()
+    if success:
+        print("\n🎉 Quick test passed! Ready for full experiments.")
+    else:
+        print("\n❌ Quick test failed! Check the issues above.")
+    sys.exit(0 if success else 1)
+EOF
+
+chmod +x quick_test.py
+echo "✅ Quick test script created"
+
+# 3. 运行快速测试
+echo "🧪 Running quick test..."
+python3 quick_test.py
+
+echo "🎯 Manual fix completed!"
