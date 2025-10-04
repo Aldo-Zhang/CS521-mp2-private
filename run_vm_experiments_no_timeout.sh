@@ -19,13 +19,16 @@ RESULTS_FILE="results/results_${TIMESTAMP}.txt"
 echo "📁 Results will be saved to: $RESULTS_FILE"
 echo ""
 
-# 实验配置 - 减少配置以避免超时
-INPUT_SIZES=(32 64)  # 减少输入尺寸
-KERNEL_SIZES=(3 5)   # 减少卷积核尺寸
+# 实验配置
+ALL_INPUT_SIZES=(16 32 64)  # 所有输入尺寸
+ALL_KERNEL_SIZES=(3 5 7)    # 所有卷积核尺寸
+INDUCTOR_INPUT_SIZES=(16 32) # Inductor只跑小尺寸
+INDUCTOR_KERNEL_SIZES=(3 5)  # Inductor只跑小卷积核
 
-# 运行所有实验
-for input_size in "${INPUT_SIZES[@]}"; do
-    for kernel_size in "${KERNEL_SIZES[@]}"; do
+# 运行PyTorch Baseline和JAX的所有配置
+echo "🧪 Running PyTorch Baseline and JAX for all configurations..."
+for input_size in "${ALL_INPUT_SIZES[@]}"; do
+    for kernel_size in "${ALL_KERNEL_SIZES[@]}"; do
         echo "🧪 Testing input ${input_size}x${input_size}, kernel ${kernel_size}x${kernel_size}"
         echo "=================================================="
         
@@ -38,15 +41,6 @@ for input_size in "${INPUT_SIZES[@]}"; do
             echo "⚠️  Baseline failed"
         fi
         
-        # PyTorch Inductor - 无超时，让编译完成
-        echo "Running PyTorch Inductor (no timeout - compilation may take time)..."
-        python3 gpu/myconv_inductor.py --input_size $input_size --kernel_size $kernel_size >> $RESULTS_FILE 2>&1
-        if [ $? -eq 0 ]; then
-            echo "✅ Inductor completed"
-        else
-            echo "⚠️  Inductor failed"
-        fi
-        
         # JAX - 无超时
         echo "Running JAX..."
         python3 gpu/myconv_jax.py --input_size $input_size --kernel_size $kernel_size >> $RESULTS_FILE 2>&1
@@ -54,6 +48,26 @@ for input_size in "${INPUT_SIZES[@]}"; do
             echo "✅ JAX completed"
         else
             echo "⚠️  JAX failed"
+        fi
+        
+        echo ""
+    done
+done
+
+# 运行PyTorch Inductor的小配置
+echo "🧪 Running PyTorch Inductor for small configurations only..."
+for input_size in "${INDUCTOR_INPUT_SIZES[@]}"; do
+    for kernel_size in "${INDUCTOR_KERNEL_SIZES[@]}"; do
+        echo "🧪 Testing Inductor input ${input_size}x${input_size}, kernel ${kernel_size}x${kernel_size}"
+        echo "=================================================="
+        
+        # PyTorch Inductor - 无超时，让编译完成
+        echo "Running PyTorch Inductor (no timeout - compilation may take time)..."
+        python3 gpu/myconv_inductor.py --input_size $input_size --kernel_size $kernel_size >> $RESULTS_FILE 2>&1
+        if [ $? -eq 0 ]; then
+            echo "✅ Inductor completed"
+        else
+            echo "⚠️  Inductor failed"
         fi
         
         echo ""
@@ -76,13 +90,13 @@ echo "💾 Saving results to Git..."
 
 # Git操作
 git add results/ plots/ gpu/*.py *.py *.sh
-git commit -m "No-Timeout VM Experiment Results - $TIMESTAMP
+git commit -m "Optimized VM Experiment Results - $TIMESTAMP
 
-- Input sizes: ${INPUT_SIZES[*]}
-- Kernel sizes: ${KERNEL_SIZES[*]}
-- Total experiments: $((${#INPUT_SIZES[@]} * ${#KERNEL_SIZES[@]} * 3))
+- PyTorch Baseline & JAX: all sizes (16,32,64) x all kernels (3,5,7) = 18 experiments
+- PyTorch Inductor: small sizes (16,32) x small kernels (3,5) = 4 experiments  
+- Total experiments: 22
 - Timestamp: $TIMESTAMP
-- No timeout mode: unlimited compilation time"
+- Optimized for Inductor compilation speed"
 
 echo "✅ Results committed to Git"
 
